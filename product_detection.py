@@ -137,8 +137,7 @@ anchors = kmeans_iou(boxes, 1, 10)[:, 2:]
 
 # %%
 def read_data(annotations, image_size, pixels_per_grid=32, no_label=False):
-    # class_map = {0:'pack'}
-    num_classes = 1 #len(class_map)
+    num_classes = 1
     grid_h, grid_w = [image_size[i] // pixels_per_grid for i in range(2)]
     images = []
     labels = []
@@ -195,7 +194,7 @@ class DataSet(object):
 
     def __init__(self, images, labels=None):
         if labels is not None:
-            assert images.shape[0] == labels.shape[0],                ('Number of examples mismatch, between images and labels')
+            assert images.shape[0] == labels.shape[0],('Number of examples mismatch, between images and labels')
         self._num_examples = images.shape[0]
         self._images = images
         self._labels = labels  # NOTE: this can be None, if not given.
@@ -516,7 +515,6 @@ gt_bwbh = (y[..., 2:4] - y[..., 0:2]) * grid_wh
 
 resp_mask = y[..., 4:5]
 no_resp_mask = 1.0 - resp_mask
-#gt_confidence = resp_mask * tf.expand_dims(iou, axis=-1)
 gt_confidence = resp_mask
 gt_class_probs = y[..., 5:]
 
@@ -604,8 +602,6 @@ def cal_map(gt_bboxes, bboxes,thresholds=[0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 
     for iou_thres in thresholds:
         p = 0
         tp = 0
-        fn = 0
-        fp = 0
         for idx, (gt, bbox) in enumerate(zip(gt_bboxes, bboxes)):
             gt = gt[np.nonzero(np.any(gt > 0, axis=1))]
             bbox = bbox[np.nonzero(np.any(bbox > 0, axis=1))]
@@ -619,28 +615,38 @@ def cal_map(gt_bboxes, bboxes,thresholds=[0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 
                 idx = np.argmax(area)
                 if np.max(area) > iou_thres and predicted_class[idx] == gt_c:
                     tp += 1
-                else:
-                    fp += 1
-        fn = p - tp
-        m = tp / (tp + fp)
+        m = tp / p
         m_tot+=m
     return m_tot/len(thresholds)
 
+def cal_recall(gt_bboxes, bboxes,iou_thres):
+    tp = 0
+    n = 0
+    for idx, (gt, bbox) in enumerate(zip(gt_bboxes, bboxes)):
+        gt = gt[np.nonzero(np.any(gt > 0, axis=1))]
+        bbox = bbox[np.nonzero(np.any(bbox > 0, axis=1))]
+        n += len(bbox)
+        if bbox.size == 0:
+            continue
+        iou = _cal_overlap(gt, bbox)
+        predicted_class = np.argmax(bbox[...,5:], axis=-1)
+        for g, area in zip(gt, iou):
+            gt_c = np.argmax(g[5:])
+            idx = np.argmax(area)
+            if np.max(area) > iou_thres and predicted_class[idx] == gt_c:
+                tp += 1
+    m = tp / n
+    return m
+
 def _cal_overlap(a, b):
     area = (b[:, 2] - b[:, 0]) * (b[:, 3] - b[:, 1])
-
     iw = np.minimum(np.expand_dims(a[:, 2], axis=1), b[:, 2]) - np.maximum(np.expand_dims(a[:, 0], axis=1), b[:, 0])
     ih = np.minimum(np.expand_dims(a[:, 3], axis=1), b[:, 3]) - np.maximum(np.expand_dims(a[:, 1], axis=1), b[:, 1])
-
     iw = np.maximum(iw, 0)
     ih = np.maximum(ih, 0)
     intersection = iw * ih
-
-    ua = np.expand_dims((a[:, 2] - a[:, 0]) *
-                        (a[:, 3] - a[:, 1]), axis=1) + area - intersection
-
+    ua = np.expand_dims((a[:, 2] - a[:, 0]) * (a[:, 3] - a[:, 1]), axis=1) + area - intersection
     ua = np.maximum(ua, np.finfo(float).eps)
-
     return intersection / ua
 
 
@@ -748,18 +754,7 @@ mAP = test_score
 test_bboxes = predict_nms_boxes(test_y_pred)
 gt_test_bboxes = convert_boxes(test_set.labels)
 precision = cal_map(test_bboxes, gt_test_bboxes, thresholds=[0.5])
-
-
-# %%
-r_idx = np.random.choice(test_set.num_examples, 1)
-test_images = test_set.images[r_idx]
-test_pred_y = sess.run(pred_y, feed_dict={X: test_images, is_train: False})
-
-
-# %%
-bboxes = predict_nms_boxes(test_pred_y[0], conf_thres=0.5, iou_thres=0.5)
-bboxes = bboxes[np.nonzero(np.any(bboxes > 0, axis=1))]
-
+recall = cal_recall(test_bboxes, gt_test_bboxes, 0.5)
 
 # %%
 results_dict = {}
@@ -773,14 +768,15 @@ for images, annot in zip(test_set.images, TEST_ANNOTATIONS):
 # %%
 metrics = {
     "mAP" : mAP,
-    "precision": precision
+    "precision": precision,
+    "recall": recall
 }
 
 
 # %%
 with open("metrics.json", "w") as f:
     json.dump(metrics, f)
-with open("results.json", "w") as f:
+with open("image2products.json", "w") as f:
     json.dump(results_dict, f)
 
 
