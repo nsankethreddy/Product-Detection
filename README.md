@@ -1,57 +1,45 @@
-## Solution description :
+# Product Detection of Shelfs:
 
-Yolov2 based shelf Image recognition (single class only for product count). 
-I trained a YoloV2 model from scratch (without any pretrained weights) on Kaggle for faster training.
+In this project we aim to detect all the different products available on a shoping store shelf/ cigarette vending machine
 
-Input Image size : 416, 416
+## Execution details :
 
+-
+  ### Directory structure :
+  ```
+  examplefolder/Production-Detection (this project)
+  examplefolder/GroceryDataset_part1 ( https://github.com/gulvarol/grocerydataset and replace GroceryDataset_part1/ShelfImages with https://storage.googleapis.com/open_source_datasets/ShelfImages.tar.gz )
+  ```
+  ### Execution steps :
+    - install requirements
+    - Load the given ipynb file to jupiter note book and execute the cells
+    - If the model is not trained i.e. if any of yolov2.ckpt.data-00000-of-00001, yolov2.ckpt.index, yolov2.ckpt.meta and checkpoint is missing, then uncomment #cell 22 and run the file
+
+      OR
+    - install requirements
+    - run ``` python3 product_detection.py ```
+    - If the model is not trained i.e. if any of yolov2.ckpt.data-00000-of-00001, yolov2.ckpt.index, yolov2.ckpt.meta and checkpoint is missing, then uncomment lines 724 to 741 and execute the file
+
+Output for the execution is stored in image2products.json and metrics.json, where image2products.json has the {(filename):(number of products detected)...} info and metrics.json has mAP, precision and recall values.
 ## Dataset preparation :
-
-- Used basic techniques to prepare the data. Scaling images and bboxes. Creating a Data Generator for
-  training/validation. 
-
-Dataset downloaded from : (https://github.com/gulvarol/grocerydataset, https://storage.googleapis.com/open_source_datasets/ShelfImages.tar.gz)
+- Scaling images
+- bboxes
 
 ## Detection Network :
 
-I used YOLOv2 (You only look once) architecture and trained it from scratch using Tensorflow on 
-Kaggle's kernel. 
+Used YOLOv2 (You only look once) architecture because Yolov2 has very good accuracy as it removes the Fully Connected Layers and instead made a Fully Convoultional Network with anchor boxes which helped detect bounding boxes better.
 
-Yolov2 had a much better accuracy improvement from the initial YOLO and less localization errors as
-it removed the Fully Connected Layers and instead made a Fully Convoultional Network with anchor boxes
-(priors according to their paper) which helped detect bounding boxes better.
-
-You can download the weights from the model I already trained from : https://drive.google.com/file/d/1dDKkXNNSAQHYc-1ZNF3RvTPAXbFiWXqO/view?usp=sharing
-
-## Evaluation :
+## Results
 
 Calculated mAP over 8 iou thresholds [0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75].
+And evaluated precission and recall for iou threshold of 0.5
 
-Got a mAP score of 0.83 on Test set over all the thresholds and a precision of 0.824 on 0.5 iou 
-threshold after training for 100 epochs. 
-
-## Anchor Box Tuning :
-
-Ideal approach is to use K-means for generating k anchor boxes and using IoU as a distance metric
-between two boxes and getting the centroids of k clusters. But in this case I had to use only one 
-anchor box so it was basically finding the mean of the all the bboxes.
-
-
+- mAP: 0.8403684210526317
+- precision: 0.8023032629558541
+- recall: 0.88
 
 ## References :
 
-I used the implementation of Yolov2 from https://github.com/JongsooKeum/yolov2-tensorflow
-and tuned according to the current dataset.
-
-
-
-## Footnote :
-My failed attempts :
-- SSD with mobilenet (300*300) couldn't get a good accuracy without pretrained weights.
-- RPN with ROI pooling from Mask RCNN 
-
-
-
-
+https://github.com/JongsooKeum/yolov2-tensorflow
 
 
