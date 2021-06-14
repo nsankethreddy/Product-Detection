@@ -194,7 +194,7 @@ class DataSet(object):
 
     def __init__(self, images, labels=None):
         if labels is not None:
-            assert images.shape[0] == labels.shape[0],('Number of examples mismatch, between images and labels')
+            assert images.shape[0] == labels.shape[0],                ('Number of examples mismatch, between images and labels')
         self._num_examples = images.shape[0]
         self._images = images
         self._labels = labels  # NOTE: this can be None, if not given.
@@ -515,6 +515,7 @@ gt_bwbh = (y[..., 2:4] - y[..., 0:2]) * grid_wh
 
 resp_mask = y[..., 4:5]
 no_resp_mask = 1.0 - resp_mask
+#gt_confidence = resp_mask * tf.expand_dims(iou, axis=-1)
 gt_confidence = resp_mask
 gt_class_probs = y[..., 5:]
 
@@ -600,8 +601,8 @@ def predict_nms_boxes(input_y, conf_thres=0.2, iou_thres=0.5):
 def cal_map(gt_bboxes, bboxes,thresholds=[0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75]):
     m_tot = 0.0
     for iou_thres in thresholds:
-        p = 0
-        tp = 0
+        tp = 0 #intersection
+        p = 0 #detected
         for idx, (gt, bbox) in enumerate(zip(gt_bboxes, bboxes)):
             gt = gt[np.nonzero(np.any(gt > 0, axis=1))]
             bbox = bbox[np.nonzero(np.any(bbox > 0, axis=1))]
@@ -620,12 +621,12 @@ def cal_map(gt_bboxes, bboxes,thresholds=[0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 
     return m_tot/len(thresholds)
 
 def cal_recall(gt_bboxes, bboxes,iou_thres):
-    tp = 0
-    n = 0
+    tp = 0 #intersection
+    o = 0 #object
     for idx, (gt, bbox) in enumerate(zip(gt_bboxes, bboxes)):
         gt = gt[np.nonzero(np.any(gt > 0, axis=1))]
         bbox = bbox[np.nonzero(np.any(bbox > 0, axis=1))]
-        n += len(bbox)
+        o += len(bbox)
         if bbox.size == 0:
             continue
         iou = _cal_overlap(gt, bbox)
@@ -635,7 +636,7 @@ def cal_recall(gt_bboxes, bboxes,iou_thres):
             idx = np.argmax(area)
             if np.max(area) > iou_thres and predicted_class[idx] == gt_c:
                 tp += 1
-    m = tp / n
+    m = tp / o
     return m
 
 def _cal_overlap(a, b):
@@ -755,6 +756,7 @@ test_bboxes = predict_nms_boxes(test_y_pred)
 gt_test_bboxes = convert_boxes(test_set.labels)
 precision = cal_map(test_bboxes, gt_test_bboxes, thresholds=[0.5])
 recall = cal_recall(test_bboxes, gt_test_bboxes, 0.5)
+
 
 # %%
 results_dict = {}
